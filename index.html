@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NovaByte — Digital Studio</title>
+<!--
+  ============================================================================
+  NOVABYTE — a deliberately vulnerable STATIC site (GitHub Pages friendly).
+  There is NO server here. The "admin login", "editor" and "upload" are all
+  CLIENT-SIDE, and that is exactly the vulnerability you're meant to find:
+    * the admin password is in the JavaScript below (you ship it to everyone)
+    * "admin" status is just a localStorage flag you can set yourself
+    * the editor saves to YOUR OWN browser, so any defacement is local to you
+  Clearly labelled educational target. Safe to host because nothing here can
+  touch a server, other users, or real data.
+  ============================================================================
+-->
+<style>
+ :root{--bg:#0c0e13;--panel:#141821;--line:#242b38;--text:#dbe3ee;--muted:#8392a6;
+       --accent:#4f8cff;--green:#3ddc84;--amber:#e4b04a}
+ *{margin:0;padding:0;box-sizing:border-box}
+ body{background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',Roboto,sans-serif;line-height:1.6}
+ .wrap{max-width:960px;margin:0 auto;padding:0 22px}
+ header{position:sticky;top:0;background:rgba(12,14,19,.9);backdrop-filter:blur(8px);
+        border-bottom:1px solid var(--line);z-index:20}
+ .nav{display:flex;align-items:center;justify-content:space-between;height:62px}
+ .brand{font-weight:800;font-size:1.2rem}.brand span{color:var(--accent)}
+ .nav a{color:var(--muted);text-decoration:none;margin-left:20px;font-size:.92rem;cursor:pointer}
+ .nav a:hover{color:var(--text)}
+ .hero{padding:70px 0 50px}
+ .hero h1{font-size:2.8rem;font-weight:800;line-height:1.1}
+ .hero p{color:var(--muted);font-size:1.1rem;margin-top:14px;max-width:52ch}
+ .hero img{max-width:100%;border-radius:14px;margin-top:22px;display:none}
+ .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:20px 0 60px}
+ .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px}
+ .card h3{color:var(--accent);margin-bottom:6px}.card p{color:var(--muted);font-size:.92rem}
+ .view{display:none}.view.active{display:block}
+ .auth{max-width:380px;margin:70px auto;background:var(--panel);border:1px solid var(--line);
+       border-radius:14px;padding:30px}
+ .auth h2{margin-bottom:4px}.auth .sub{color:var(--muted);font-size:.88rem;margin-bottom:18px}
+ label{display:block;font-size:.85rem;font-weight:600;margin:12px 0 6px}
+ input,textarea{width:100%;background:#0c0f16;color:var(--text);border:1px solid var(--line);
+     border-radius:8px;padding:10px 12px;font-family:inherit;font-size:.92rem}
+ .btn{background:var(--accent);color:#04101f;border:none;padding:10px 20px;border-radius:8px;
+      font-weight:700;cursor:pointer;font-family:inherit;font-size:.9rem;margin-top:14px}
+ .msg{margin-top:14px;padding:10px 12px;border-radius:8px;font-size:.86rem}
+ .msg.no{background:#241216;border:1px solid #5a1f28;color:#fca5a5}
+ .editor{max-width:640px;margin:40px auto}
+ .editor .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;margin-bottom:18px}
+ .flag{background:#0d1a12;border:1px solid #1d5236;color:var(--green);font-weight:700;
+       padding:12px;border-radius:8px;margin-top:14px;word-break:break-all}
+ .hint{color:var(--muted);font-size:.82rem}
+ footer{border-top:1px solid var(--line);color:var(--muted);padding:24px 0;text-align:center;font-size:.82rem}
+ .warn{color:var(--amber);font-size:.8rem}
+</style>
+</head>
+<body>
+<header><div class="wrap nav">
+  <div class="brand">Nova<span>Byte</span></div>
+  <nav>
+    <a onclick="go('home')">Home</a>
+    <a onclick="go('services')">Services</a>
+    <a onclick="go('admin')">Staff portal</a>
+  </nav>
+</div></header>
+
+<!-- ===== HOME ===== -->
+<section id="home" class="view active"><div class="wrap">
+  <div class="hero">
+    <div id="banner"><!-- rendered from localStorage (raw) --></div>
+    <img id="bannerImg" alt="">
+  </div>
+  <div class="cards">
+    <div class="card"><h3>Design</h3><p>Brand systems and interfaces that feel inevitable.</p></div>
+    <div class="card"><h3>Engineering</h3><p>Fast, resilient web apps built to last.</p></div>
+    <div class="card"><h3>Growth</h3><p>Analytics and experiments that move the numbers.</p></div>
+  </div>
+</div></section>
+
+<!-- ===== SERVICES ===== -->
+<section id="services" class="view"><div class="wrap">
+  <div class="hero"><h1>What we do</h1>
+    <p>NovaByte is a small studio shipping design and engineering for ambitious teams.</p></div>
+</div></section>
+
+<!-- ===== ADMIN LOGIN ===== -->
+<section id="admin" class="view"><div class="wrap">
+  <div class="auth">
+    <h2>Staff portal</h2>
+    <div class="sub">Authorised staff only.</div>
+    <label>Username</label><input id="u" autocomplete="off">
+    <label>Password</label><input id="p" type="password" autocomplete="off">
+    <button class="btn" onclick="tryLogin()">Sign in</button>
+    <div id="loginMsg"></div>
+    <p class="hint" style="margin-top:16px">Hint: this check happens entirely in your browser. There are at least three ways in without the password.</p>
+  </div>
+</div></section>
+
+<!-- ===== EDITOR (admin only) ===== -->
+<section id="editor" class="view"><div class="wrap"><div class="editor">
+  <h2>Content editor</h2>
+  <div id="authFlag" class="flag" style="display:none"></div>
+  <div class="panel">
+    <h3>Homepage banner</h3>
+    <label>Headline (HTML allowed)</label>
+    <textarea id="bannerInput" rows="3"></textarea>
+    <label>Banner image</label>
+    <input type="file" id="imgFile" accept="*/*">
+    <button class="btn" onclick="saveBanner()">Publish</button>
+    <div id="defaceFlag" class="flag" style="display:none"></div>
+    <p class="warn" style="margin-top:12px">Note: this saves to <b>your</b> browser only (localStorage). On a real server this change would hit every visitor — here it can't, because there's no server.</p>
+  </div>
+  <a class="btn" onclick="go('home')" style="text-decoration:none">View live site →</a>
+  <a class="btn" style="background:#2a3140;color:#dbe3ee;text-decoration:none" onclick="logout()">Log out</a>
+</div></div></section>
+
+<footer><div class="wrap">NovaByte Studio · a client-side security learning target · not a real company</div></footer>
+
+<script>
+// ===========================================================================
+// ROUTING
+// ===========================================================================
+function go(id){
+  // [VULN] access control is a client-side check: if you're "admin" the editor
+  //        is shown. But "admin" is just a localStorage flag you control.
+  if (id === 'admin' && isAdmin()) id = 'editor';
+  document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+  var el = document.getElementById(id);
+  if (el) el.classList.add('active');
+  if (id === 'home') renderBanner();
+  if (id === 'editor') openEditor();
+  window.scrollTo(0,0);
+}
+
+// ===========================================================================
+// "AUTH"  — all client-side, which is the whole vulnerability
+// ===========================================================================
+// [VULN] The credential is hard-coded in the JavaScript you ship to everyone.
+//        Anyone can read it in View-Source / DevTools.
+var ADMIN_USER = 'admin';
+var ADMIN_PASS = 'N0va_Staff!2027';
+
+function isAdmin(){
+  // [VULN] "logged in" = a localStorage flag. The user can set this themselves.
+  try { return localStorage.getItem('nb_admin') === '1'; } catch(e){ return false; }
+}
+function grantAdmin(){
+  try { localStorage.setItem('nb_admin','1'); } catch(e){}
+}
+function logout(){
+  try { localStorage.removeItem('nb_admin'); } catch(e){}
+  go('home');
+}
+function tryLogin(){
+  var u = document.getElementById('u').value;
+  var p = document.getElementById('p').value;
+  var msg = document.getElementById('loginMsg');
+  if (u === ADMIN_USER && p === ADMIN_PASS){
+    grantAdmin(); go('editor');
+  } else {
+    msg.className = 'msg no';
+    msg.textContent = 'Invalid credentials. (But the password is in this page’s source...)';
+  }
+}
+
+// ===========================================================================
+// EDITOR
+// ===========================================================================
+function openEditor(){
+  if (!isAdmin()){ go('admin'); return; }
+  // reaching the editor at all = client-side auth was bypassed
+  var af = document.getElementById('authFlag');
+  af.style.display = 'block';
+  af.textContent = 'Admin access gained client-side. FLAG: STATIC{client_side_auth_is_no_auth}';
+  document.getElementById('bannerInput').value = getBanner().html;
+}
+function saveBanner(){
+  var html = document.getElementById('bannerInput').value;
+  var data = getBanner();
+  data.html = html;
+  var f = document.getElementById('imgFile').files[0];
+  if (f){
+    // [VULN] unrestricted client-side file read; no type check. Stored as a data URL.
+    var r = new FileReader();
+    r.onload = function(){ data.img = r.result; persist(data); afterSave(html); };
+    r.readAsDataURL(f);
+  } else {
+    persist(data); afterSave(html);
+  }
+}
+function afterSave(html){
+  if (/DEFACED/i.test(html)){
+    var df = document.getElementById('defaceFlag');
+    df.style.display = 'block';
+    df.textContent = 'Banner defaced (in your browser). FLAG: STATIC{stored_in_localstorage_rendered_raw}';
+  }
+}
+
+// ===========================================================================
+// BANNER STORAGE + RENDER
+// ===========================================================================
+function getBanner(){
+  var def = { html: '<h1>We build <span style="color:#4f8cff">better</span> software</h1>'
+                   + '<p>NovaByte is a design &amp; engineering studio for teams that ship.</p>',
+              img: '' };
+  try { return JSON.parse(localStorage.getItem('nb_banner')) || def; } catch(e){ return def; }
+}
+function persist(data){
+  try { localStorage.setItem('nb_banner', JSON.stringify(data)); } catch(e){}
+}
+function renderBanner(){
+  var d = getBanner();
+  // [VULN] stored content rendered raw with innerHTML -> client-side stored XSS
+  document.getElementById('banner').innerHTML = d.html;
+  var img = document.getElementById('bannerImg');
+  if (d.img){ img.src = d.img; img.style.display = 'block'; } else { img.style.display = 'none'; }
+}
+
+renderBanner();
+</script>
+</body>
+</html>
